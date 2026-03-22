@@ -58,5 +58,9 @@ async def ask_baby_bloom(request: ChatRequest):
 async def health_check():
     return {"status": "healthy", "engine_loaded": _engine is not None}
 
+import os
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Use the dynamic PORT assigned by Render, defaulting to 8000 for local use
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
