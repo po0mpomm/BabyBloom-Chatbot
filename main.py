@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from rag_engine import BabyBloomEngine
+# Zero-load startup: Imports moved inside functions
 import uvicorn
 
 app = FastAPI(title="Baby Blooms API")
@@ -21,6 +21,7 @@ _engine = None
 def get_engine():
     global _engine
     if _engine is None:
+        from rag_engine import BabyBloomEngine
         print("Initializing BabyBloomEngine (this may take a minute)...")
         try:
             _engine = BabyBloomEngine()
