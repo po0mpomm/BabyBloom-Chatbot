@@ -10,6 +10,7 @@ langchain-community>=0.3.0,<0.4.0
 langchain-text-splitters
 langchain-groq
 langchain-cohere
+langchain-huggingface
 pypdf
 sentence-transformers
 faiss-cpu

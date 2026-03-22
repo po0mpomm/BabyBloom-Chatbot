@@ -4,7 +4,7 @@ from langchain.chains import ConversationalRetrievalChain, LLMChain
 from langchain.memory import ConversationBufferMemory
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
-from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain_cohere import CohereRerank
 from langchain_community.vectorstores import FAISS
@@ -14,7 +14,8 @@ load_dotenv()
 
 class BabyBloomEngine:
     def __init__(self, index_path="faiss_direct_index"):
-        self.embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+        # Use the modern HuggingFaceEmbeddings class
+        self.embedding_function = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         self.index_path = index_path
         self.db = None
         self.llm = None

@@ -15,12 +15,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize the RAG engine
-try:
-    engine = BabyBloomEngine()
-except Exception as e:
-    print(f"Error initializing engine: {e}")
-    engine = None
+# Initialize engine lazily to avoid startup timeouts on Render
+_engine = None
+
+def get_engine():
+    global _engine
+    if _engine is None:
+        print("Initializing BabyBloomEngine (this may take a minute)...")
+        try:
+            _engine = BabyBloomEngine()
+        except Exception as e:
+            print(f"Error initializing engine: {e}")
+            _engine = None # Ensure _engine remains None if initialization fails
+            raise HTTPException(status_code=500, detail=f"Failed to initialize RAG Engine: {e}")
+    return _engine
 
 class ChatRequest(BaseModel):
     question: str
@@ -28,6 +36,7 @@ class ChatRequest(BaseModel):
 
 @app.post("/ask")
 async def ask_baby_bloom(request: ChatRequest):
+    engine = get_engine()
     if not engine:
         raise HTTPException(status_code=500, detail="RAG Engine not initialized.")
     
