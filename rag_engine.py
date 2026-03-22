@@ -1,20 +1,14 @@
+```python
 import os
 from dotenv import load_dotenv
-from langchain.chains import ConversationalRetrievalChain, LLMChain
-from langchain.memory import ConversationBufferMemory
-from langchain_groq import ChatGroq
-from langchain.prompts import PromptTemplate
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain_cohere import CohereRerank
-from langchain_community.vectorstores import FAISS
-from langchain_text_splitters import CharacterTextSplitter
 
 load_dotenv()
 
 class BabyBloomEngine:
     def __init__(self, index_path="faiss_direct_index"):
-        # Use the modern HuggingFaceEmbeddings class
+        # Move heavy imports inside to speed up initial server boot
+        from langchain_huggingface import HuggingFaceEmbeddings
+        
         self.embedding_function = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         self.index_path = index_path
         self.db = None
@@ -24,6 +18,14 @@ class BabyBloomEngine:
         self._initialize()
 
     def _initialize(self):
+        from langchain_community.vectorstores import FAISS
+        from langchain_groq import ChatGroq
+        from langchain.chains import ConversationalRetrievalChain, LLMChain
+        from langchain.memory import ConversationBufferMemory
+        from langchain.prompts import PromptTemplate
+        from langchain.retrievers import ContextualCompressionRetriever
+        from langchain_cohere import CohereRerank
+
         if not os.path.exists(self.index_path):
             raise FileNotFoundError(f"Vector database not found at {self.index_path}")
         
@@ -75,6 +77,8 @@ class BabyBloomEngine:
         self.intent_classifier = self._create_intent_classifier_chain(self.llm)
 
     def _create_intent_classifier_chain(self, llm):
+        from langchain.chains import LLMChain
+        from langchain.prompts import PromptTemplate
         intent_prompt = PromptTemplate(
             input_variables=["question"],
             template="""
