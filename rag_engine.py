@@ -12,18 +12,18 @@ class BabyBloomEngine:
         self.index_path = index_path
         self.db = None
         self.llm = None
-        self.qa_chain = None
+        self.rag_chain = None
         self.intent_classifier = None
         self._initialize()
 
     def _initialize(self):
         from langchain_community.vectorstores import FAISS
         from langchain_groq import ChatGroq
-        from langchain.chains import ConversationalRetrievalChain, LLMChain
-        from langchain.memory import ConversationBufferMemory
-        from langchain.prompts import PromptTemplate
-        from langchain.retrievers import ContextualCompressionRetriever
+        from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+        from langchain.chains.combine_documents import create_stuff_documents_chain
+        from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
         from langchain_cohere import CohereRerank
+        from langchain.retrievers import ContextualCompressionRetriever
 
         if not os.path.exists(self.index_path):
             raise FileNotFoundError(f"Vector database not found at {self.index_path}")
@@ -37,12 +37,26 @@ class BabyBloomEngine:
             base_compressor=compressor, base_retriever=base_retriever
         )
         
-        memory = ConversationBufferMemory(
-            memory_key="chat_history", 
-            return_messages=True
+        # 1. Recontextualization Chain
+        contextualize_q_system_prompt = (
+            "Given a chat history and the latest user question "
+            "which might reference context in the chat history, formulate a standalone question "
+            "which can be understood without the chat history. Do NOT answer the question, "
+            "just reformulate it if needed and otherwise return it as is."
         )
         
-        custom_prompt_template = """
+        contextualize_q_prompt = ChatPromptTemplate.from_messages([
+            ("system", contextualize_q_system_prompt),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ])
+        
+        history_aware_retriever = create_history_aware_retriever(
+            self.llm, compression_retriever, contextualize_q_prompt
+        )
+        
+        # 2. QA Chain
+        qa_system_prompt = """
         **You are Baby Blooms, an AI Neonatal Information Assistant.** Your persona is empathetic, knowledgeable, and extremely focused on safety. Your expertise comes *exclusively* from the medical textbook excerpts provided in the **CONTEXT**.
 
         **Your primary goal is to structure your answer in a specific, multi-part format to ensure clarity and safety.**
@@ -58,26 +72,22 @@ class BabyBloomEngine:
         CONTEXT:
         {context}
         ---
-        QUESTION:
-        {question}
-        ---
         """
         
-        CUSTOM_PROMPT = PromptTemplate(template=custom_prompt_template, input_variables=["context", "question"])
+        qa_prompt = ChatPromptTemplate.from_messages([
+            ("system", qa_system_prompt),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ])
         
-        self.qa_chain = ConversationalRetrievalChain.from_llm(
-            llm=self.llm,
-            retriever=compression_retriever,
-            memory=memory,
-            combine_docs_chain_kwargs={"prompt": CUSTOM_PROMPT},
-            verbose=False 
-        )
+        question_answer_chain = create_stuff_documents_chain(self.llm, qa_prompt)
+        self.rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
         
         self.intent_classifier = self._create_intent_classifier_chain(self.llm)
 
     def _create_intent_classifier_chain(self, llm):
+        from langchain_core.prompts import PromptTemplate
         from langchain.chains import LLMChain
-        from langchain.prompts import PromptTemplate
         intent_prompt = PromptTemplate(
             input_variables=["question"],
             template="""
@@ -96,9 +106,20 @@ class BabyBloomEngine:
         elif "meta_query" in intent:
             result = "I'm Baby Blooms, an AI assistant designed to answer questions based on information from medical textbooks. How can I help with a newborn health question?"
         else: 
-            response = self.qa_chain.invoke({
-                "question": question, 
-                "chat_history": chat_history
+            from langchain_core.messages import HumanMessage, AIMessage
+            # Format chat history for the modern chain
+            formatted_history = []
+            for msg in chat_history:
+                if isinstance(msg, dict):
+                    if msg.get('role') == 'user':
+                        formatted_history.append(HumanMessage(content=msg.get('content')))
+                    else:
+                        formatted_history.append(AIMessage(content=msg.get('content')))
+                # Handle cases where msg might already be a message object if called from other places
+            
+            response = self.rag_chain.invoke({
+                "input": question, 
+                "chat_history": formatted_history
             })
             result = response.get('answer', "I apologize, an error occurred.")
         
