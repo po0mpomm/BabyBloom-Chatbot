@@ -1,0 +1,17 @@
+spacy
+streamlit
+requests
+groq
+python-dotenv
+openai
+numpy
+langchain
+langchain-groq
+pypdf
+sentence-transformers
+faiss-cpu
+python-dotenv
+langchain-community
+langchain_cohere
+pinecone-client
+langchain-pinecone
