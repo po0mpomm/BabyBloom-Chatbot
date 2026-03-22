@@ -56,7 +56,7 @@ async def ask_baby_bloom(request: ChatRequest):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "engine_loaded": engine is not None}
+    return {"status": "healthy", "engine_loaded": _engine is not None}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
