@@ -13,5 +13,7 @@ faiss-cpu
 python-dotenv
 langchain-community
 langchain_cohere
+fastapi
+uvicorn
 pinecone-client
 langchain-pinecone
