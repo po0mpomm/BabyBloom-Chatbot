@@ -32,6 +32,7 @@ def get_engine():
     return _engine
 
 @app.get("/")
+@app.head("/")
 async def root():
     return {
         "message": "Baby-bloom Chatbot API is LIVE!",
