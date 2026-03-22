@@ -30,6 +30,14 @@ def get_engine():
             raise HTTPException(status_code=500, detail=f"Failed to initialize RAG Engine: {e}")
     return _engine
 
+@app.get("/")
+async def root():
+    return {
+        "message": "Baby-bloom Chatbot API is LIVE!",
+        "integration": "Use POST /ask to chat, or visit /docs for API documentation.",
+        "status": "Ready"
+    }
+
 class ChatRequest(BaseModel):
     question: str
     chat_history: Optional[List[dict]] = []
