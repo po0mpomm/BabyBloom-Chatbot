@@ -15,25 +15,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize engine on startup to avoid Render HTTP timeouts
+import asyncio
+
 _engine = None
+_engine_initialized = False
+_engine_error = None
+
+async def initialize_engine_background():
+    global _engine, _engine_initialized, _engine_error
+    def _init():
+        from rag_engine import BabyBloomEngine
+        return BabyBloomEngine()
+        
+    try:
+        print("Starting background initialization of BabyBloomEngine...")
+        _engine = await asyncio.to_thread(_init)
+        _engine_initialized = True
+        print("BabyBloomEngine initialized successfully in background.")
+    except Exception as e:
+        print(f"Error initializing engine in background: {e}")
+        _engine_error = str(e)
 
 @app.on_event("startup")
 async def startup_event():
-    global _engine
-    from rag_engine import BabyBloomEngine
-    print("Initializing BabyBloomEngine during startup (this may take a minute) - avoiding Render HTTP timeout...")
-    try:
-        _engine = BabyBloomEngine()
-        print("BabyBloomEngine initialized successfully.")
-    except Exception as e:
-        print(f"Error initializing engine: {e}")
-        _engine = None
+    print("Scheduling BabyBloomEngine initialization...")
+    asyncio.create_task(initialize_engine_background())
 
 def get_engine():
-    global _engine
-    if _engine is None:
-        raise HTTPException(status_code=500, detail="RAG Engine not initialized.")
+    global _engine, _engine_initialized, _engine_error
+    if _engine_error:
+        raise HTTPException(status_code=500, detail=f"RAG Engine initialization failed: {_engine_error}")
+    if not _engine_initialized:
+        raise HTTPException(status_code=503, detail="RAG Engine is still initializing. Please try again in a few seconds.")
     return _engine
 
 @app.get("/")
