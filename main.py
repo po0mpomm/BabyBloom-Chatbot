@@ -15,20 +15,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize engine lazily to avoid startup timeouts on Render
+# Initialize engine on startup to avoid Render HTTP timeouts
 _engine = None
+
+@app.on_event("startup")
+async def startup_event():
+    global _engine
+    from rag_engine import BabyBloomEngine
+    print("Initializing BabyBloomEngine during startup (this may take a minute) - avoiding Render HTTP timeout...")
+    try:
+        _engine = BabyBloomEngine()
+        print("BabyBloomEngine initialized successfully.")
+    except Exception as e:
+        print(f"Error initializing engine: {e}")
+        _engine = None
 
 def get_engine():
     global _engine
     if _engine is None:
-        from rag_engine import BabyBloomEngine
-        print("Initializing BabyBloomEngine (this may take a minute)...")
-        try:
-            _engine = BabyBloomEngine()
-        except Exception as e:
-            print(f"Error initializing engine: {e}")
-            _engine = None # Ensure _engine remains None if initialization fails
-            raise HTTPException(status_code=500, detail=f"Failed to initialize RAG Engine: {e}")
+        raise HTTPException(status_code=500, detail="RAG Engine not initialized.")
     return _engine
 
 @app.get("/")
